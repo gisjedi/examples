@@ -5,14 +5,14 @@
             "Action": "*",
             "Effect": "Allow",
             "Resource": [
-                "arn:aws:sqs:*:*:scale-s3-demo-UploadsQueue-*"
+                "arn:aws:sqs:*:*:scale-quick-start-UploadsQueue-*"
             ]
         },
         {
             "Action": "*",
             "Effect": "Allow",
             "Resource": [
-                "arn:aws:s3:::scale-bucket-*"
+                "arn:aws:s3:::scale-quick-start-*"
             ]
         }
     ]

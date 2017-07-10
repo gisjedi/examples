@@ -2,10 +2,10 @@
 	"AWSTemplateFormatVersion": "2010-09-09",
 	"Description": "Creates the S3 bucket, SNS topic and SQS queue that will receive notifications",
 	"Parameters": {
-		"S3BucketName": {
+		"S3BucketPrefix": {
 			"MaxLength": "63",
 			"ConstraintDescription": "must be a valid S3 bucket name",
-			"Default": "scale-s3-create-retrieve-test",
+			"Default": "scale-quick-start",
 			"Description": "Required: Specify a valid, globally unique S3 bucket name.",
 			"AllowedPattern": "^[a-z0-9][a-z0-9-.]*$",
 			"MinLength": "2",
@@ -70,7 +70,7 @@
 				]
 			}
 		},
-		"Bucket": {
+		"BucketInput": {
 			"Type": "AWS::S3::Bucket",
 			"Properties": {
 				"AccessControl": "Private",
@@ -79,8 +79,9 @@
 						"",
 						[
 							{
-								"Ref": "S3BucketName"
-							}
+								"Ref": "S3BucketPrefix"
+							},
+							"-input"
 						]
 					]
 				},
@@ -119,6 +120,45 @@
 			"DeletionPolicy": "Retain",
 			"DependsOn": "BucketToUploadsTopicPolicy"
 		},
+		"BucketOutput": {
+			"Type": "AWS::S3::Bucket",
+			"Properties": {
+				"AccessControl": "Private",
+				"BucketName": {
+					"Fn::Join": [
+						"",
+						[
+							{
+								"Ref": "S3BucketPrefix"
+							},
+							"-output"
+						]
+					]
+				},
+				"CorsConfiguration": {
+					"CorsRules": [
+						{
+							"AllowedHeaders": [
+								"*"
+							],
+							"AllowedMethods": [
+								"GET",
+								"PUT",
+								"HEAD"
+							],
+							"AllowedOrigins": [
+								"*"
+							],
+							"ExposedHeaders": [
+								"x-amz-server-side-encryption"
+							],
+							"MaxAge": "3000"
+						}
+					]
+				}
+			},
+			"DeletionPolicy": "Retain"
+		},
 		"BucketToUploadsTopicPolicy": {
 			"Type": "AWS::SNS::TopicPolicy",
 			"Properties": {
@@ -142,8 +182,9 @@
 											[
 												"arn:aws:s3:*:*:",
 												{
-													"Ref": "S3BucketName"
-												}
+													"Ref": "S3BucketPrefix"
+												},
+												"-input"
 											]
 										]
 									}
@@ -161,9 +202,14 @@
 		}
 	},
 	"Outputs": {
-		"BucketName": {
+		"InputBucketName": {
 			"Value": {
-				"Ref": "Bucket"
+				"Ref": "BucketInput"
+			}
+		},
+		"OutputBucketName": {
+			"Value": {
+				"Ref": "BucketOutput"
 			}
 		},
 		"UploadsQueueUrl": {

@@ -1,20 +1,31 @@
 #!/usr/bin/env sh
 
+if [[ "${BUCKET_IN}x" == "x" ]]
+then
+    BUCKET_IN=scale-quick-start-input
+fi
+
+if [[ "${BUCKET_OUT}x" == "x" ]]
+then
+    BUCKET_OUT=scale-quick-start-output
+fi
+
 # The following environment variables are required for the successful execution of this script.
 # DCOS_TOKEN: DCOS token that can found within ~/.dcos/dcos.toml once DCOS CLI is authenticated against DCOS cluster
 # DCOS_ROOT_URL: The externally routable Admin URL.
 # REGION_NAME: AWS Region where SQS and S3 bucket reside.
-# BUCKET_NAME: AWS S3 bucket name only. Full ARN should NOT be used.
+# BUCKET_IN: Input AWS S3 bucket name only. Full ARN should NOT be used. When unset defaults to scale-quick-start-input
+# BUCKET_OUT: Output AWS S3 bucket name only. Full ARN should NOT be used. When unset defaults to scale-quick-start-output
 # QUEUE_NAME: AWS SQS queue name only. Full ARN should NOT be used.
 # ACCESS_KEY: Access Key for IAM user that will access S3 and SQS resources.
 # SECRET_KEY: Secret Key for IAM user that will access S3 and SQS resources.
 
-cat << EOF > workspace.json
+cat << EOF > workspace-input.json
 {
-    "description": "s3-direct",
+    "description": "s3-input",
     "json_config": {
         "broker": {
-            "bucket_name": "${BUCKET_NAME}",
+            "bucket_name": "${BUCKET_IN}",
             "credentials": {
                 "access_key_id": "${ACCESS_KEY}",
                 "secret_access_key": "${SECRET_KEY}"
@@ -23,9 +34,29 @@ cat << EOF > workspace.json
             "type": "s3"
         }
     },
-    "name": "s3-direct",
-    "title": "s3-direct",
-    "base_url": "https://s3.amazonaws.com/${BUCKET_NAME}"
+    "name": "s3-input",
+    "title": "s3-input",
+    "base_url": "https://s3.amazonaws.com/${BUCKET_IN}"
+}
+EOF
+
+cat << EOF > workspace-output.json
+{
+    "description": "s3-output",
+    "json_config": {
+        "broker": {
+            "bucket_name": "${BUCKET_OUT}",
+            "credentials": {
+                "access_key_id": "${ACCESS_KEY}",
+                "secret_access_key": "${SECRET_KEY}"
+            },
+            "region_name": "${REGION_NAME}",
+            "type": "s3"
+        }
+    },
+    "name": "s3-output",
+    "title": "s3-output",
+    "base_url": "https://s3.amazonaws.com/${BUCKET_OUT}"
 }
 EOF
 
@@ -125,7 +156,7 @@ cat << EOF > recipe-type.json
             },
             "data": {
                 "input_data_name": "input_file",
-                "workspace_name": "s3-direct"
+                "workspace_name": "s3-input"
             }
         },
         "is_active": true,
@@ -143,7 +174,7 @@ cat << EOF > strike.json
   "description": "s3-strike-process",
   "configuration": {
     "version": "2.0",
-    "workspace": "s3-direct",
+    "workspace": "s3-input",
     "monitor": {
       "type": "s3",
       "sqs_name": "${QUEUE_NAME}",
@@ -158,15 +189,17 @@ cat << EOF > strike.json
         "filename_regex": ".*",
         "data_types": [
           "all_my_mounted_files"
-        ]
+        ],
+        "new_workspace": "s3-output"
       }
     ]
   }
 }
 EOF
 
-
-curl -k -L -X POST -H "Authorization: token=${DCOS_TOKEN}" -H "Content-Type: application/json" -H "Cache-Control: no-cache" -d @workspace.json "${DCOS_ROOT_URL}/service/scale/api/v4/workspaces/"
+# Create input/output workspaces... make sure we grab the output using jq
+curl -k -L -X POST -H "Authorization: token=${DCOS_TOKEN}" -H "Content-Type: application/json" -H "Cache-Control: no-cache" -d @workspace-input.json "${DCOS_ROOT_URL}/service/scale/api/v4/workspaces/"
+curl -k -L -X POST -H "Authorization: token=${DCOS_TOKEN}" -H "Content-Type: application/json" -H "Cache-Control: no-cache" -d @workspace-output.json "${DCOS_ROOT_URL}/service/scale/api/v4/workspaces/"
 curl -k -L -X POST -H "Authorization: token=${DCOS_TOKEN}" -H "Content-Type: application/json" -H "Cache-Control: no-cache" -d @job-type.json "${DCOS_ROOT_URL}/service/scale/api/v4/job-types/"
 curl -k -L -X POST -H "Authorization: token=${DCOS_TOKEN}" -H "Content-Type: application/json" -H "Cache-Control: no-cache" -d @recipe-type.json "${DCOS_ROOT_URL}/service/scale/api/v4/recipe-types/"
 curl -k -L -X POST -H "Authorization: token=${DCOS_TOKEN}" -H "Content-Type: application/json" -H "Cache-Control: no-cache" -d @strike.json "${DCOS_ROOT_URL}/service/scale/api/v4/strikes/"

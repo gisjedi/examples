@@ -54,26 +54,26 @@ The provided Scale example is specific to AWS Simple Storage Service (S3) proces
 **Deploy S3 Bucket, SNS Topic and SQS Queue.** A CloudFormation template is provided to get these resources quickly instantiated. The only parameter that must be specified is the BucketName. The below example command to launch the template uses shell syntax to generate a bucket name that is unique to satisfy the global uniqueness constraint. If you prefer a specific name, replace the ParameterValue with your chosen name.
 
 ```bash
-aws cloudformation create-stack --stack-name scale-s3-demo --template-body https://raw.githubusercontent.com/dcos/examples/master/scale/example-scripts/scale-demo-cloudformation.json --parameters "ParameterKey=S3BucketName,ParameterValue=scale-bucket-`date +"%Y%m%d-%H%M%S"`"
+aws cloudformation create-stack --stack-name scale-quick-start --template-body https://raw.githubusercontent.com/dcos/examples/master/scale/example-scripts/scale-quick-start-cloudformation.json --parameters "ParameterKey=S3BucketPrefix,ParameterValue=scale-quick-start-`date +"%Y%m%d-%H%M%S"`"
 ```
 
 **Describe Stack Resources.** Creation of the CloudFormation stack from above should be completed in only a couple minutes. The following command may be used to extract information needed to set the IAM policy so Scale can access the created resources. If the StackStatus is not CREATE_COMPLETE wait a minute and run it again. The OutputValues associated with UploadsQueueUrl and BucketName from this command are what will be needed.
 
 ```bash
-aws cloudformation describe-stacks --stack-name scale-s3-demo
+aws cloudformation describe-stacks --stack-name scale-quick-start
 ```
 
 **Create IAM User and Access Key.** The Access Key and Secret Key should be noted as they will be needed by Scale to authenticate against AWS for access to our provisioned resources. Feel free to change the user name value as needed.
 
 ```bash
-aws iam create-user --user-name scale-test-user
-aws iam create-access-key --user-name scale-test-user
+aws iam create-user --user-name scale-quick-start-user
+aws iam create-access-key --user-name scale-quick-start-user
 ```
 
 **Create IAM policy and apply to user.** The provided policy template will handle the ARNs of resources created by the above template. The policy will only need to be updated to reflect the ARNs if the defaults have been updated.
 
 ```bash
-aws iam put-user-policy --user-name scale-test-user --policy-document https://raw.githubusercontent.com/dcos/examples/master/scale/example-scripts/scale-demo-policy.json --policy-name scale-demo-policy
+aws iam put-user-policy --user-name scale-quick-start-user --policy-document https://raw.githubusercontent.com/dcos/examples/master/scale/example-scripts/scale-quick-start-policy.json --policy-name scale-quick-start-policy
 ```
 
 ## Process data in Scale
@@ -87,17 +87,19 @@ curl -L https://raw.githubusercontent.com/dcos/examples/master/scale/example-scr
 export DCOS_TOKEN="DCOS token that can found within ~/.dcos/dcos.toml once DCOS CLI is authenticated against DCOS cluster."
 export DCOS_ROOT_URL="The externally routable Admin URL. Also found in ~/.dcos/dcos.toml."
 export REGION_NAME="AWS Region where SQS and S3 bucket reside."
-export BUCKET_NAME="AWS S3 bucket name only. Full ARN should NOT be used."
+export BUCKET_IN="AWS S3 bucket name only. Full ARN should NOT be used."
+export BUCKET_OUT="AWS S3 bucket name only. Full ARN should NOT be used."
 export QUEUE_NAME="AWS SQS queue name only. Full ARN should NOT be used."
 export ACCESS_KEY="Access Key for IAM user that will access S3 and SQS resources."
-export SECRET_KEY="Secret Key for IAM user that will access S3 and SQS resources."sh scale-init.sh
+export SECRET_KEY="Secret Key for IAM user that will access S3 and SQS resources."
+sh scale-init.sh
 ```
 
 **Test Scale ingest.** Now that our configuration is complete we can verify that Scale is ready to process. We will drop a new file into our bucket using the AWS CLI. This file can be anything, but a text file over 1 MiB is best to demonstrate the jobs ability to extract only the first MiB. The following will do nicely:
 
 ```bash
 base64 /dev/urandom | head -c 2000000 > sample-data-2mb.txt
-aws s3 cp --acl public-read sample-data-2mb.txt s3://${BUCKET_NAME}/
+aws s3 cp --acl public-read sample-data-2mb.txt s3://${BUCKET_IN}/
 ```
 
 **View processing results.** In the Scale UI, navigate to Jobs. A Read Bytes job should have completed. Click on the job in the table and see the outputs in the detail view. You should be able to see that the file size is 1MiB. Feel free to download and inspect. Congratulations, you've processed your first file within Scale! For more advanced examples refer to the [Scale GitHub](https://github.com/ngageoint/scale) and [Docker Hub](https://hub.docker.com/r/geoint/scale) repositories, as well as the [documentation](http://ngageoint.github.io/scale/).
